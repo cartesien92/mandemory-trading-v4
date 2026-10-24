@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MANDÉMORY TRADING BOT V4 PRO</title>
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#e8f1ff;background:#091321}
+*{box-sizing:border-box}
+body{margin:0}
+main{max-width:900px;margin:auto;padding:22px 14px 70px}
+h1{font-size:25px;margin:0}
+h2{font-size:19px;margin:0 0 15px}
+.muted{color:#a8bad1}
+.tag{background:#173a35;color:#8ce5c7;border-radius:30px;padding:8px 12px;font-weight:700}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.card{background:#15243a;border:1px solid #304763;border-radius:18px;padding:18px;margin-top:18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.metric{background:#0d1a2d;border-radius:13px;padding:13px}
+.metric b{display:block;font-size:23px;margin-top:6px}
+label{display:block;color:#b5c5d9;font-size:13px;margin-bottom:6px}
+input,select{background:#0b182b;border:1px solid #4a6280;color:white;border-radius:11px;padding:12px;width:100%;font-size:16px}
+button{border:0;border-radius:12px;padding:13px 16px;font-size:15px;font-weight:700;background:#699af9;color:#091321;cursor:pointer}
+button:disabled{opacity:.5}
+button.secondary{background:#2a3e5a;color:#e8f1ff}
+.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:10px 7px;border-bottom:1px solid #34465f;text-align:left}
+th{color:#b6c6d9}
+.scroll{overflow:auto}
+canvas{width:100%;height:240px;background:#0b182b;border-radius:10px}
+.good{color:#8ce5c7}
+.bad{color:#ff9ba3}
+.notice{border-left:3px solid #e6bb66;padding-left:12px;color:#b6c6d9;line-height:1.6}
+#status{min-height:24px}
+small{color:#9eb1cb}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+<div>
+<h1>◆ MANDÉMORY TRADING BOT</h1>
+<div class="muted">V4 PRO · Radar multi-marchés · Backtest</div>
+</div>
+<span class="tag">● PAPER ONLY</span>
+</div>
+
+<section class="card">
+<h2>Portefeuille simulé</h2>
+<div style="font-size:38px;font-weight:800" id="equity">500,00 USDT</div>
+<div class="grid">
+<div class="metric">Performance<b id="return">0,00 %</b></div>
+<div class="metric">Drawdown max<b id="dd">—</b></div>
+<div class="metric">Transactions clôturées<b id="trades">—</b></div>
+<div class="metric">Taux de réussite<b id="win">—</b></div>
+</div>
+</section>
+
+<section class="card">
+<h2>Paramètres de simulation</h2>
+<div class="grid">
+<div>
+<label for="symbol">Marché</label>
+<select id="symbol"></select>
+</div>
+<div>
+<label for="capital">Capital fictif (USDT)</label>
+<input id="capital" type="number" value="500" min="50" step="50">
+</div>
+<div>
+<label for="risk">Risque maximal théorique par trade (%)</label>
+<select id="risk">
+<option value="0.5">0,5 %</option>
+<option value="1" selected>1 %</option>
+<option value="2">2 %</option>
+</select>
+</div>
+<div>
+<label for="exposure">Exposition maximale (%)</label>
+<select id="exposure">
+<option value="10">10 %</option>
+<option value="25" selected>25 %</option>
+<option value="40">40 %</option>
+</select>
+</div>
+</div>
+<div class="actions">
+<button id="backtest">Lancer le backtest</button>
+<button id="refresh" class="secondary">Actualiser les données</button>
+</div>
+<p id="status" class="muted">Prêt. Les résultats sont uniquement simulés.</p>
+</section>
+
+<section class="card">
+<h2>Radar multi-marchés</h2>
+<p class="muted">Classement indicatif de huit marchés sur bougies 4 h clôturées. Ce score ne prédit pas les prix.</p>
+<button id="scan">Scanner les 8 marchés</button>
+<p id="scanstatus" class="muted">Scanner prêt.</p>
+<div class="scroll">
+<table>
+<thead>
+<tr>
+<th>Marché</th>
+<th>Score / 100</th>
+<th>RSI</th>
+<th>Tendance</th>
+<th>Volatilité</th>
+</tr>
+</thead>
+<tbody id="scanrows">
+<tr><td colspan="5">Aucune analyse</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="card">
+<h2>Évolution simulée du portefeuille</h2>
+<canvas id="chart" width="760" height="260"></canvas>
+<p class="muted" id="period">Aucun backtest lancé.</p>
+</section>
+
+<section class="card">
+<h2>Validation hors échantillon</h2>
+<p class="muted">Découpage chronologique 70 % / 30 %. Les indicateurs sont calculés avec les données passées uniquement. Aucun réglage automatique sur la période de validation.</p>
+<div class="grid">
+<div class="metric">Observation (70 %)<b id="train">—</b></div>
+<div class="metric">Validation (30 %)<b id="test">—</b></div>
+</div>
+</section>
+
+<section class="card">
+<h2>Dernières opérations simulées</h2>
+<div class="scroll">
+<table>
+<thead>
+<tr>
+<th>Date UTC</th>
+<th>Action</th>
+<th>Prix</th>
+<th>P/L USDT</th>
+</tr>
+</thead>
+<tbody id="orders">
+<tr><td colspan="4">Aucune opération</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<section class="card">
+<h2>Stratégie V4 PRO</h2>
+<p class="muted">Spot long-only · EMA20/EMA50 · RSI14 (45–65) · MACD positif · stop 2 × ATR14 · objectif 2 × risque · risque configurable · exposition plafonnée · frais estimés 0,1 % par côté · glissement estimé 0,05 % par côté.</p>
+<p class="notice">Outil éducatif de simulation, sans clés API et sans ordre réel. Les données publiques peuvent être indisponibles selon le navigateur ou la région. Les frais et le glissement sont approximatifs. Les performances passées ne garantissent aucun gain. Le scanner ne surveille pas les marchés en arrière-plan.</p>
+</section>
+</main>
+<script>
+
+  'use strict';
+
+const $=id=>document.getElementById(id);
+const symbols=['BTCUSDT','ETHUSDT','SOLUSDT','BNBUSDT','XRPUSDT','ADAUSDT','LINKUSDT','AVAXUSDT'];
+
+$('symbol').innerHTML=symbols.map(s=>`<option value="${s}">${s.replace('USDT',' / USDT')}</option>`).join('');
+
+let cache=new Map();
+const fmt=(x,n=2)=>Number(x).toLocaleString('fr-FR',{minimumFractionDigits:n,maximumFractionDigits:n});
+
+function ema(a,n){
+let out=Array(a.length).fill(null),k=2/(n+1),sum=0;
+for(let i=0;i<a.length;i++){
+if(i<n){
+sum+=a[i];
+if(i===n-1)out[i]=sum/n;
+}else out[i]=a[i]*k+out[i-1]*(1-k);
+}
+return out;
+}
+
+function indicators(r){
+const c=r.map(x=>x.c),e20=ema(c,20),e50=ema(c,50),e12=ema(c,12),e26=ema(c,26);
+const mac=e12.map((x,i)=>x===null||e26[i]===null?null:x-e26[i]);
+const valid=mac.filter(x=>x!==null),signal=ema(valid,9),sig=Array(r.length).fill(null);
+let j=0;
+for(let i=0;i<mac.length;i++)if(mac[i]!==null)sig[i]=signal[j++];
+let atr=Array(r.length).fill(null),rsi=Array(r.length).fill(null),gain=0,loss=0,tr=0;
+for(let i=1;i<r.length;i++){
+let d=c[i]-c[i-1],g=Math.max(d,0),l=Math.max(-d,0);
+let t=Math.max(r[i].h-r[i].l,Math.abs(r[i].h-c[i-1]),Math.abs(r[i].l-c[i-1]));
+if(i<=14){
+gain+=g;loss+=l;tr+=t;
+if(i===14){gain/=14;loss/=14;tr/=14}
+}else{
+gain=(gain*13+g)/14;
+loss=(loss*13+l)/14;
+tr=(tr*13+t)/14;
+}
+if(i>=14){
+atr[i]=tr;
+rsi[i]=loss===0?100-(gain===0?50:0):100-100/(1+gain/loss);
+}
+}
+return{e20,e50,mac,sig,atr,rsi};
+}
+
+async function fetchBars(s,force=false){
+if(!force&&cache.has(s))return cache.get(s);
+let lastError;
+for(const base of ['https://data-api.binance.vision','https://api.binance.com']){
+try{
+const res=await fetch(`${base}/api/v3/klines?symbol=${s}&interval=4h&limit=1000`,{cache:'no-store'});
+if(!res.ok)throw Error('HTTP '+res.status);
+const data=await res.json();
+if(!Array.isArray(data)||data.length<100)throw Error('Données insuffisantes');
+const now=Date.now();
+let bars=data.filter(x=>Number(x[6])<now).map(x=>({
+t:Number(x[0]),o:+x[1],h:+x[2],l:+x[3],c:+x[4]
+}));
+if(bars.length<100)throw Error('Bougies clôturées insuffisantes');
+cache.set(s,bars);
+return bars;
+}catch(e){lastError=e}
+}
+throw Error('Données Binance indisponibles : '+lastError.message);
+}
+
+function runPart(r,capital,riskPct,exposurePct){
+let x=indicators(r),cash=capital,qty=0,entry=0,stop=0,target=0,entryCost=0;
+let peak=capital,dd=0,curve=[],orders=[],wins=0,closed=0;
+const fee=.001,slip=.0005;
+
+for(let i=55;i<r.length;i++){
+let bar=r[i],prev=i-1;
+if(qty>0){
+let exit=null,reason='';
+if(bar.l<=stop){
+exit=Math.min(bar.o,stop)*(1-slip);
+reason='STOP';
+}else if(bar.h>=target){
+exit=target*(1-slip);
+reason='OBJECTIF';
+}else if(x.e20[prev]<x.e50[prev]||x.mac[prev]<x.sig[prev]){
+exit=bar.o*(1-slip);
+reason='SORTIE TENDANCE';
+}
+if(exit!==null){
+let proceeds=qty*exit*(1-fee),pl=proceeds-entryCost;
+cash+=proceeds;
+closed++;
+if(pl>0)wins++;
+orders.push({t:bar.t,action:reason,price:exit,pl});
+qty=0;
+}
+}
+
+if(qty===0&&x.e20[prev]>x.e50[prev]&&x.mac[prev]>x.sig[prev]&&x.rsi[prev]>=45&&x.rsi[prev]<=65&&x.atr[prev]>0){
+let price=bar.o*(1+slip),dist=2*x.atr[prev];
+let riskBudget=cash*riskPct/100;
+let units=Math.min(riskBudget/dist,cash*exposurePct/100/(price*(1+fee)));
+if(units>0&&units*price*(1+fee)<=cash){
+qty=units;
+entry=price;
+entryCost=qty*price*(1+fee);
+cash-=entryCost;
+stop=price-dist;
+target=price+2*dist;
+orders.push({t:bar.t,action:'ACHAT',price,pl:null});
+}
+}
+let equity=cash+qty*bar.c*(1-fee);
+peak=Math.max(peak,equity);
+dd=Math.max(dd,(peak-equity)/peak*100);
+curve.push(equity);
+}
+
+if(qty>0){
+let price=r.at(-1).c*(1-slip);
+let proceeds=qty*price*(1-fee),pl=proceeds-entryCost;
+cash+=proceeds;
+closed++;
+if(pl>0)wins++;
+orders.push({t:r.at(-1).t,action:'FIN PÉRIODE',price,pl});
+curve[curve.length-1]=cash;
+}
+
+return{
+equity:cash,
+returnPct:(cash/capital-1)*100,
+dd,closed,
+win:closed?wins/closed*100:0,
+curve,orders
+};
+}
+function draw(a){
+let c=$('chart'),ctx=c.getContext('2d'),w=c.width,h=c.height;
+ctx.clearRect(0,0,w,h);
+ctx.strokeStyle='#30445f';
+ctx.lineWidth=1;
+for(let j=1;j<5;j++){
+ctx.beginPath();
+ctx.moveTo(0,j*h/5);
+ctx.lineTo(w,j*h/5);
+ctx.stroke();
+}
+if(a.length<2)return;
+let lo=Math.min(...a),hi=Math.max(...a);
+if(hi===lo)hi=lo+1;
+ctx.beginPath();
+a.forEach((v,i)=>{
+let px=i/(a.length-1)*(w-24)+12;
+let py=h-16-(v-lo)/(hi-lo)*(h-32);
+i?ctx.lineTo(px,py):ctx.moveTo(px,py);
+});
+ctx.strokeStyle='#7eb9ff';
+ctx.lineWidth=3;
+ctx.stroke();
+ctx.fillStyle='#b8cbe2';
+ctx.font='15px system-ui';
+ctx.fillText(fmt(hi)+' USDT',12,18);
+ctx.fillText(fmt(lo)+' USDT',12,h-7);
+}
+
+function pct(v){
+return(v>=0?'+':'')+fmt(v)+' %';
+}
+
+function result(el,v){
+$(el).textContent=pct(v);
+$(el).className=v<0?'bad':'good';
+}
+
+function iso(t){
+return new Date(t).toISOString().slice(0,16).replace('T',' ');
+}
+
+$('backtest').onclick=async()=>{
+let b=$('backtest'),s=$('status');
+b.disabled=true;
+s.textContent='Chargement et calcul en cours…';
+try{
+let cap=Number($('capital').value);
+if(!Number.isFinite(cap)||cap<50||cap>100000000)throw Error('Capital fictif invalide (minimum 50 USDT)');
+let bars=await fetchBars($('symbol').value);
+let split=Math.floor(bars.length*.7);
+let args=[cap,Number($('risk').value),Number($('exposure').value)];
+let all=runPart(bars,...args);
+let train=runPart(bars.slice(0,split),...args);
+let test=runPart(bars.slice(Math.max(0,split-60)),...args);
+
+$('equity').textContent=fmt(all.equity)+' USDT';
+result('return',all.returnPct);
+$('dd').textContent=fmt(all.dd)+' %';
+$('trades').textContent=all.closed;
+$('win').textContent=fmt(all.win)+' %';
+result('train',train.returnPct);
+result('test',test.returnPct);
+draw(all.curve);
+
+$('period').textContent=`${iso(bars[0].t)} à ${iso(bars.at(-1).t)} UTC · ${bars.length} bougies 4 h clôturées`;
+
+let rows=all.orders.slice(-20).reverse();
+$('orders').innerHTML=rows.length?rows.map(o=>`<tr><td>${iso(o.t)}</td><td>${o.action}</td><td>${fmt(o.price)}</td><td class="${o.pl===null?'':o.pl<0?'bad':'good'}">${o.pl===null?'—':fmt(o.pl)}</td></tr>`).join(''):'<tr><td colspan="4">Aucune opération</td></tr>';
+
+s.textContent='Backtest terminé. Aucune transaction réelle.';
+}catch(e){
+s.textContent='Erreur : '+e.message;
+}finally{
+b.disabled=false;
+}
+};
+
+$('refresh').onclick=()=>{
+cache.clear();
+$('status').textContent='Cache effacé. Relance le backtest pour récupérer les dernières bougies.';
+};
+
+$('scan').onclick=async()=>{
+let b=$('scan');
+b.disabled=true;
+$('scanstatus').textContent='Analyse des huit marchés en cours…';
+
+let results=await Promise.all(symbols.map(async s=>{
+try{
+let r=await fetchBars(s);
+let x=indicators(r),i=r.length-1;
+let up=x.e20[i]>x.e50[i];
+let macUp=x.mac[i]>x.sig[i];
+let rsi=x.rsi[i];
+let vol=x.atr[i]/r[i].c*100;
+let score=Math.max(0,Math.min(100,Math.round(40+(up?20:-15)+(macUp?15:-10)+(rsi>=45&&rsi<=65?15:-10)-(vol>6?10:0))));
+return{s,score,rsi,trend:up?'Haussière':'Baissière',vol};
+}catch(e){
+return{s,error:e.message};
+}
+}));
+
+results.sort((a,b)=>(b.score??-1)-(a.score??-1));
+
+$('scanrows').innerHTML=results.map(x=>x.error
+?`<tr><td>${x.s}</td><td colspan="4">Indisponible</td></tr>`
+:`<tr><td>${x.s}</td><td>${x.score}</td><td>${fmt(x.rsi)}</td><td>${x.trend}</td><td>${fmt(x.vol)} %</td></tr>`
+).join('');
+
+$('scanstatus').textContent=`${results.filter(x=>!x.error).length}/8 marchés analysés. Classement indicatif.`;
+b.disabled=false;
+};
+
+draw([]);
+</script>
+</body>
+</html>
+  
